@@ -1,0 +1,314 @@
+void CaesarEncrypt(char*input,char* encrypted,int numShift,char*lang); 						// prototype Caesar cipher
+
+void CaesarDecrypt(char* input, char* decrypted, int numShift, char* lang);
+
+void railFenceEncrypt(char* msg, char* encrypted, int numRails);
+
+void railFenceDecrypt(char* encrypted, char* decrypted, int numRails); 				// prototyping functions we'll use
+
+void encryptAndCheckAgainstReference(char* input, int numRails, char* referenceFile);
+
+int main(void) {
+	char input[200], encrypted[200] = { 0 }, decrypted[200] = { 0 }, filename[200];         // initializing arrays to use later + declaring variables
+	int choice, caesar, numRails, numShift;
+	FILE* file;	                                                                        // file pointer
+
+	while (1) {
+		printf("\nRail Fence Cipher Menu\n");
+		printf("1. Encrypt a message\n");
+		printf("2. Decrypt a message\n");
+		printf("3. Read from a file and decrypt\n");
+		printf("4. Encrypt a message and check against reference\n");			// offering options to serve as input which dictates the case 'switch' chooses. 
+		printf("5. Caesar Cipher Menu?\n");
+		printf("6. Exit\n");
+		printf("Enter your choice: ");
+		scanf("%d", &choice);
+
+		switch (choice) {
+		case 1:
+			printf("Enter a message to encrypt: ");
+			while (getchar() != '\n');                                 // Flush the input buffer? -- kept getting errors, read to put this before every fgets and after scanf. 
+			fgets(input, sizeof(input), stdin);                        // storing user input into variable 'input' to push through a function as a parameter
+			input[strcspn(input, "\n")] = '\0';                        // Remove the newline character
+			printf("Enter the number of rails: ");
+			scanf("%d", &numRails);
+			while (getchar() != '\n');                                 // Flush the input buffer again after reading number
+			railFenceEncrypt(input, encrypted, numRails);
+			printf("Encrypted Message: %s\n", encrypted);
+			break;
+
+		case 2:
+			printf("Enter a message to decrypt: ");
+			while (getchar() != '\n');
+			fgets(input, sizeof(input), stdin);
+			input[strcspn(input, "\n")] = '\0';                          // Remove the newline character
+			printf("Enter the number of rails: ");
+			scanf("%d", &numRails);                                      // store number of rails in variable
+			while (getchar() != '\n');                                   // Flush the input buffer again after scanf
+			railFenceDecrypt(input, decrypted, numRails);                // execute function
+			printf("Decrypted Message: %s\n", decrypted);                // return result
+			break;
+		case 3:
+			printf("Enter filename to decrypt: ");
+			while (getchar() != '\n');
+			fgets(filename, sizeof(filename), stdin);
+			filename[strcspn(filename, "\n")] = '\0';         // remove new line character for proper reading in file = fopen
+			file = fopen(filename, "r");                      // filename works here because we removed the new line character
+			if (file == NULL) {                               // helpful error JIC
+				printf("File not found.\n");
+				break;
+			}
+			fscanf(file, "%d\n", &numRails);                             // Read the number of rails from the first line
+			fgets(encrypted, sizeof(encrypted), file);                    // Read the encrypted message and store contents in variable 'encrypted'
+			fclose(file);                                                  // close file to conserve resources
+			railFenceDecrypt(encrypted, decrypted, numRails);            //push 'encrypted' through decrypt function and store result as 'decrypted' using numRails as param
+			printf("Decrypted Message: %s\n", decrypted);                 //return functions result
+			break;
+		case 4:
+			printf("Enter a message to encrypt: ");                         //obvi..
+			while (getchar() != '\n');
+			fgets(input, sizeof(input), stdin);                               //take input and store in variable 'input'.. how original.
+			input[strcspn(input, "\n")] = '\0';                                // remmove new line character.. would scrw up the read if we didnt.
+			printf("Enter the number of rails: ");
+			scanf("%d", &numRails);
+			while (getchar() != '\n');                                        // Flush the input buffer..again
+			printf("Enter reference file name: ");
+			fgets(filename, sizeof(filename), stdin);                        // store inputed file name as variable 'filename'..... 
+			filename[strcspn(filename, "\n")] = '\0';
+			encryptAndCheckAgainstReference(input, numRails, filename);      // smash filename through this function
+			break;
+		case 5:
+			printf("1. Do you want to encrypt a message with a Caesar Cipher?: \n");
+			printf("2. Do you want to decrypt a message with a Caesar Cipher?: \n");
+			scanf("%d", &caesar);
+			printf("Enter the message: ");
+			while (getchar() != '\n');
+			fgets(input, sizeof(input), stdin);                        //get my message
+			input[strcspn(input, "\n")] = '\0';
+			for (int i = 0; input[i]; i++) {				   // make the entire string lowercase
+				input[i] = tolower(input[i]);
+			}
+			printf("Enter the number of letters to shift by: ");
+			scanf("%d", &numShift);
+			while (getchar() != '\n');                                 // Flush the input buffer again after reading number
+			FILE* lang = fopen("English.txt", 'r'); // if this is ever expanded to other languages,a printf/scanf will be needed to ID the desired language to find corresponding .txt
+			if (caesar == 1) {
+				CaesarEncrypt(input, encrypted, numShift, lang); 		   // neeed to prototype and define this function
+				printf("Message encrypted with caesar cipher: %s\n", encrypted);
+				break;
+			}
+			if (caesar == 2) {
+				CaesarDecrypt(input, decrypted, numShift, lang); 		   // neeed to prototype and define this function
+				printf("Message decrypted with caesar cipher: %s\n", decrypted);
+				break;
+			}
+
+		case 6:
+			return 0;
+		default:
+			printf("Seriously? Please enter a number between 1 and 6.\n");
+		}
+	}
+
+	return 0;
+}
+
+
+
+
+
+void railFenceEncrypt(char* msg, char* encrypted, int numRails) { 				// Encryption function body
+	int len = strlen(msg);
+	bool flip;                                                      // created a binary flippable variable do I can use it to swap directions later.. pretty sweet
+	int row = 0, col = 0;                                          //placeholding variables
+
+	// Dynamically allocate memory for the rail matrix
+	char** railFence = (char**)malloc(numRails * sizeof(char*));   // could not get this to work with one '*' after char, no clue why but reasearch said to do this way - it worked.
+	for (int i = 0; i < numRails; i++) {
+		railFence[i] = (char*)malloc(len * sizeof(char));
+		memset(railFence[i], 0, len * sizeof(char)); 		// Initialize the array with null characters to be replaced here shortly, just hold tight
+	}
+
+	// Fill the rail matrix ---> told ya
+	for (int i = 0; i < len; ++i) {					// iterate the length of the message --> 'len' was declared at the beginning of the function body
+		if (row == 0) flip = true;				// which way is our little boolean switch gonna flip? As soon as we hit numRails-1 or 0 our switch flips
+		if (row == numRails - 1) flip = false;			// and stays there until one of the conditions is met for it to switch again
+
+		railFence[row][col++] = msg[i];				//plop that character right where it goes.
+
+		flip ? row++ : row--;					// is 'flip' true or fale?,if its true, row++.. if its false, row-- 
+	}
+
+	// Read the rail matrix row-wise
+	int idx = 0;
+	for (int i = 0; i < numRails; ++i) {
+		for (int j = 0; j < col; ++j) {
+			if (railFence[i][j]) {
+				encrypted[idx++] = railFence[i][j];
+			}
+		}
+	}
+	encrypted[idx] = '\0';                                            // Null terminate the string
+
+	// Free the dynamically allocated memory
+	for (int i = 0; i < numRails; i++) {
+		free(railFence[i]);
+	}
+	free(railFence);
+}
+
+
+
+
+
+
+void railFenceDecrypt(char* encrypted, char* decrypted, int numRails) {	  //decryption function body
+	int len = strlen(encrypted);
+	bool flip;
+	int row = 0, col = 0;
+
+	// Dynamically allocate memory for the rail matrix
+	char** railFence = (char**)malloc(numRails * sizeof(char*));      // could not get this to work with one '*', no clue why but reasearch said to do this way - it worked.
+	for (int i = 0; i < numRails; i++) {
+		railFence[i] = (char*)malloc(len * sizeof(char));         // you like that dynamic memory dont you.  
+		memset(railFence[i], 0, len * sizeof(char)); 	          // Initialize the array with null characters to be replaced.
+	}
+
+	// Mark positions to place characters
+	for (int i = 0; i < len; ++i) {
+		if (row == 0) flip = true;
+		if (row == numRails - 1) flip = false;
+
+		railFence[row][col++] = '*';			          // need to stick something there in the mean time so I used an '*' as my placeholder.
+		//this piece is identical to the part in the encryption functions labeled '// Fill the rail matrix ---> told ya'
+		flip ? row++ : row--;				          //except instead of msg[i], here we stuffed in our placeholder.	
+	}
+
+	// Place the characters in the marked positions
+	int idx = 0;
+	for (int i = 0; i < numRails; ++i) {
+		for (int j = 0; j < col; ++j) {
+			if (railFence[i][j] == '*' && idx < len) {        // making sure the location was identified with an '*' as one needing to be filled as well as not exceeding the 									  //length of the message using the variable 'len' which was declared WAYYY back up at the top of the function body.
+				railFence[i][j] = encrypted[idx++];       // using 'idx' as a counter variable
+			}
+		}
+	}
+
+	// Read off the matrix in a zigzag pattern
+	row = 0, col = 0;
+	for (int i = 0; i < len; ++i) {
+		if (row == 0) flip = true;
+		if (row == numRails - 1) flip = false;
+
+		if (railFence[row][col] != '*') {
+			decrypted[i] = railFence[row][col++];
+		}
+
+		flip ? row++ : row--;
+	}
+	decrypted[len] = '\0';						  // Null terminate the string
+
+	// Free the dynamically allocated memory
+	for (int i = 0; i < numRails; i++) {
+		free(railFence[i]); 			 		  // to conserve resources
+	}
+	free(railFence);
+}
+
+
+
+
+
+
+
+
+void encryptAndCheckAgainstReference(char* input, int numRails, char* referenceFile) {			//check against reference file function body
+	char encrypted[200] = { 0 }, decrypted[200] = { 0 };
+	FILE* refFile, * tempFile;
+	char refContent[200];
+
+	// Encrypt the input message
+	railFenceEncrypt(input, encrypted, numRails);  // take the users input that we stored in variable 'input', push it through the function, save result as 'encrypted' using numRails as 						   //parameter
+
+	// Save the encrypted message to a temp file  
+	tempFile = fopen("temp_encrypted.txt", "w");   // open file so we can save contents of variable 'encrypted'(from previous step) in .txt file
+	if (tempFile == NULL) {                        // helpful error JIC
+		printf("Error opening file for writing encrypted message.\n");
+		return;
+	}
+	fprintf(tempFile, "%s", encrypted);            // this is where we actual save the contents of variable 'encrypted' to the .txt file
+	fclose(tempFile);			    	   // conserve resources by closing file.
+
+	// Decrypt the message
+	railFenceDecrypt(encrypted, decrypted, numRails); // decrypt the result of our encryption function run 3 steps back
+
+	// Open the reference file and read its content
+	refFile = fopen("reference.txt", "r");            // open reference file to be read
+	if (refFile == NULL) {
+		printf("Error opening reference file.\n");    // helpful errors to see where in this process I was getting stuck. 
+		return;
+	}
+	if (fgets(refContent, sizeof(refContent), refFile) == NULL) { // another helpful error 
+		printf("Error reading from reference file.\n");		  // store contents of refFile(a file) in array refContent so we can use strcmp in the next step
+		fclose(refFile);
+		return;
+	}
+	fclose(refFile);
+
+	// Compare the decrypted message with the reference file 
+	if (strcmp(decrypted, refContent) == 0) {  // strcmp compares the characters in each stering and then returns one of 3 values(-1,0,1). for == 0, both strings must be identical..
+		printf("Decrypted message matches reference file content.\n");
+	}
+	else {
+		printf("Decrypted message does not match reference file content.\n"); // it either matches perfectly or it doesnt.. we dont care which string has the larger non-matching number.
+	}
+}
+
+
+
+
+
+
+
+
+
+void CaesarEncrypt(char*input, char*encrypted, int numShift,char* lang) {     // lang is the stored contents of the English.txt file.
+	int y, c, n = strlen(lang);     				// declare variables
+	int z = strlen(input);
+	for (int i = 0; i < z; i++) {	//iterate from 0 --->length of the input msg 
+		for (int a = 0; a < n; a++) {
+			if (input[i] == lang[a]) {
+						y = i; // y= the index value of our input character within its native language alphabet
+						c = (numShift + y) % n;
+						encrypted[i] = lang[c];							
+			}
+			if (input[i] == ' ') {
+						encrypted[i] = ' ';
+			}
+		}
+	}
+	printf("message encrypted with Caesar Cipher: %s\n", encrypted);
+}
+
+
+
+
+
+
+void CaesarDecrypt(char* input, char* decrypted, int numShift, char* lang) {     // lang is the stored contents of the English.txt file.
+	int y, c, n = strlen(lang);     				// declare variables
+	int z = strlen(input);
+	for (int i = 0; i < z; i++) {	//iterate from 0 --->length of the input msg 
+		for (int a = 0; a < n; a++) {
+			if (input[i] == lang[a]) {
+				y = i; // y= the index value of our input character within its native language alphabet
+				c = (y-numShift) % n;
+				decrypted[i] = lang[c];
+			}
+			if (input[i] == ' ') {
+				decrypted[i] = ' ';
+			}
+		}
+	}
+	printf("Message decrypted with Caesar Cipher: %s\n", decrypted);
+}
